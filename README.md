@@ -8,17 +8,36 @@ I build deep learning systems that have to run somewhere constrained: a microcon
 
 ## Selected work
 
-### [OnKith_Public](https://github.com/YahyaAlsharif/OnKith_Public) · on-device PII masking
-TinyBERT (4L-312D) token classifier that detects and masks personally identifying spans before text leaves the device. Trained on English rows of `ai4privacy/pii-masking-openpii-1.5m`, 147,366 train / 16,374 validation, with the official validation split of 40,908 rows held out entirely and never used for checkpoint selection.
+### [OnKith_Public](https://github.com/YahyaAlsharif/OnKith_Public) · local PII detection and masking
+[Website](https://onkith.online/) · [LinkedIn](https://www.linkedin.com/company/onkith/)
 
-| | Token micro-F1 | Entity F1 | Leakage | Size | Batch-1 latency |
-|---|---|---|---|---|---|
-| FP32 ONNX | 0.973 | 0.957 | 0.003 | 54.5 MB | 144 ms |
-| INT8 ONNX | 0.970 | 0.950 | 0.003 | 13.7 MB | 130 ms |
+OnKith is a privacy-first system that detects and masks personally identifying spans locally before sensitive text can leave the device. My work focuses on the PII models: data preparation and BIO alignment, model selection and training, evaluation, error analysis, ONNX export, INT8 quantisation, and deployment-oriented model comparison.
 
-4x smaller for 0.3 points of token F1. Packaged for Raspberry Pi 5 deployment downstream of speech-to-text.
+The model evolved deliberately from **BiLSTM → TinyBERT → DeBERTa-v3-xsmall**. The BiLSTM established the first sequence-tagging baseline at **0.605 binary token F1** under an older dataset/protocol. TinyBERT became the first production-oriented transformer, trading a small edge footprint for much stronger contextual detection. Once the pipeline showed enough compute and memory headroom, I moved to DeBERTa-v3-xsmall to improve masking quality rather than optimizing only for minimum model size.
 
-`PyTorch` `Transformers` `ONNX Runtime` `seqeval`
+| Model | Format | F1 | Leakage | Artifact size |
+|---|---|---:|---:|---:|
+| TinyBERT 4L-312D | FP32 ONNX | 0.957 | 0.003 | 54.5 MB |
+| TinyBERT 4L-312D | INT8 ONNX | 0.9502 | 0.0029 | 13.72 MiB |
+| DeBERTa-v3-xsmall | FP32 ONNX | 0.9610 | 0.0017 | ~270 MiB |
+| DeBERTa-v3-xsmall | INT8 ONNX | **0.9588** | **0.0017** | 78.47 MiB |
+
+The strongest direct comparison is the two INT8 deployment models on the **same 40,909-row held-out English validation split**: DeBERTa improves typed F1 from **0.9502 → 0.9588**, reduces leakage from **0.0029 → 0.0017**, reduces overmasking from **0.0044 → 0.0029**, and raises exact-row correctness from **0.7413 → 0.7844**. The cost is a 5.72× larger INT8 artifact and roughly 5.1× higher measured single-thread desktop latency.
+
+The TinyBERT FP32 row comes from its historical standalone evaluation, so it should not be treated as an apples-to-apples comparison with Model V2. The direct TinyBERT-vs-DeBERTa claim above uses the shared INT8 evaluation protocol.
+
+`PyTorch` `Transformers` `ONNX Runtime` `Token Classification` `Privacy Evaluation`
+
+### [kaust-cell-instance-segmentation](https://github.com/YahyaAlsharif/kaust-cell-instance-segmentation) · cell instance segmentation, 3rd place
+**3rd of 24 teams** on the final private leaderboard of KAUST Academy Summer School 2026 Challenge 2, detecting and segmenting individual neuronal cells in dense fluorescence microscopy images.
+
+The solution evolved across 15 measured stages: from a Mask R-CNN baseline to a **ConvNeXt-Tiny U-Net** that predicts foreground, seed structure, and a continuous per-instance distance field, then recovers instances with marker-controlled watershed. The largest late gain came from **object-centric zoom-in sampling** and fixing the target formulation rather than adding a larger model or ensemble.
+
+Final team private leaderboard score: **0.5472**. The final single-model Stage 15 run reached **0.5463 private / 0.5345 public**, with **0.8144 grouped-validation F1**, and ran end to end in about 26 minutes on one T4.
+
+Notebook: [3rd-place-object-centric-convnext-unet-distance](https://www.kaggle.com/code/ghostylicious/3rd-place-object-centric-convnext-unet-distance)
+
+`PyTorch` `ConvNeXt` `U-Net` `Watershed` `OpenCV` `timm`
 
 ### [Kaggle_inpainting_comp](https://github.com/YahyaAlsharif/Kaggle_inpainting_comp) · image inpainting, 3rd place
 MI-GAN pipeline for 256x256 reconstruction with a custom rectangle-mask recovery step, YuNet face filtering, and test-matched dynamic masks. Three-epoch generator fine-tuning on perceptual, reconstruction, boundary and visible-region losses. All 8,000 test images reconstructed and validated, visible pixels preserved.
